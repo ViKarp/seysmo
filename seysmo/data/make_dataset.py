@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from math import floor
 
 from obspy import read
 import segyio
@@ -35,33 +36,56 @@ def round_to_nearest_5(number):
     else:
         return number - last_digit + 10
 
+
 def make_input_output_dataframe(root_directory):
     inputs = []
     outputs = []
-    sgy_files = find_files(root_directory)
-    output_df = make_unite_output(root_directory[:-3] + 'TXT')
-    for file in tqdm(sgy_files):
-        segyfile = read(file)
-        input_vector = segyfile[0].data
-        inputs.append(input_vector)
-        with segyio.open(file, "r", endian='little') as segyfile:
-            # Читаем заголовки трасс
-            headers = segyfile.header
-            x_coord = round_to_nearest_5(headers[0][segyio.TraceField.SourceX])
-            y_coord = round_to_nearest_5(headers[0][segyio.TraceField.SourceY])
-            output_vector = output_df[(output_df['Receiver_Midpoint_X'] == x_coord/100)]['Velocity'].to_numpy()
-            if len(output_vector) > 10:
-                output_vector = output_df[(output_df['Receiver_Midpoint_X'] == x_coord/100) & (output_df['Receiver_Midpoint_Y'] == y_coord/100)]['Velocity'].to_numpy()
-            if len(output_vector) == 0 or np.isnan(np.sum(output_vector)):
-                print(x_coord)
-                print(y_coord)
-                print(file)
-            outputs.append(output_vector)
-    input_df = pd.DataFrame(inputs)
-    output_df = pd.DataFrame(outputs)
-    input_df.to_csv("../../data/processed/max_inputs.csv")
-    output_df.to_csv("../../data/processed/max_outputs.csv")
-#TODO три незаписанных аутпута
+    outputs_files = find_files(root_directory)
+    seysm_set = dict()
+    filename = "../../data/raw/MAX_SGY/For_Masw_Resample.sgy"
+    with segyio.open(filename, "r", endian='big', ignore_geometry=True) as segyfile:
+        tr_start = 0
+        tr_last = 1
+
+        while tr_last != len(segyfile.trace) + 1:
+            while segyfile.header[tr_last][segyio.TraceField.FieldRecord] == segyfile.header[tr_start][
+                segyio.TraceField.FieldRecord]:
+                tr_last += 1
+                if tr_last == len(segyfile.trace):
+                    break
+            seysmogramm = pd.DataFrame(segyfile.trace[tr_start:tr_last]).values
+            rec_mid_x = floor(
+                ((segyfile.header[tr_start][segyio.TraceField.GroupX] / 100 + segyfile.header[tr_last - 1][
+                    segyio.TraceField.GroupX] / 100) / 2))
+            rec_mid_y = floor(
+                ((segyfile.header[tr_start][segyio.TraceField.GroupY] / 100 + segyfile.header[tr_last - 1][
+                    segyio.TraceField.GroupY] / 100) / 2))
+            seysm_set[(rec_mid_x, rec_mid_y)] = seysmogramm
+            tr_start, tr_last = tr_last, tr_last + 1
+            print(tr_start, '/', len(segyfile.trace))
+
+    for files in tqdm(outputs_files):
+        with segyio.open(files, "r", endian='big', ignore_geometry=True) as segyfile_output:
+            for tr_index in range(len(segyfile_output.header)):
+                rec_mid_x = floor(segyfile_output.header[tr_index][segyio.TraceField.CDP_X] / 100)
+                rec_mid_y = floor(segyfile_output.header[tr_index][segyio.TraceField.CDP_Y] / 100)
+                if (rec_mid_x, rec_mid_y) in seysm_set.keys():
+                    inputs.append(seysm_set[(rec_mid_x, rec_mid_y)])
+                    outputs.append(segyfile_output.trace[tr_index])
+                else:
+                    print(rec_mid_x, rec_mid_y)
+                    print(files)
+                    print(tr_index)
+
+    input_df = np.array(inputs)
+    output_df = np.array(outputs)
+    print(input_df.shape)
+    print(output_df.shape)
+    np.save("../../data/processed/max_inputs.npy", input_df)
+    np.save("../../data/processed/max_outputs.npy", output_df)
+
+
+# TODO три незаписанных аутпута
 
 if __name__ == '__main__':
-    make_input_output_dataframe("../../data/raw/SGY")
+    make_input_output_dataframe("../../data/raw/2023_MSU_MASW/02.Data/03.Result/")
