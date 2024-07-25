@@ -65,3 +65,4 @@ def evaluate(dataloader, model, loss_fn, metrics_fn, epoch, device):
     mlflow.log_metric("eval_mape", f"{eval_mape:2f}", step=epoch)
 
     print(f"Eval metrics: \nMAPE: {eval_mape:.2f}, Avg loss: {eval_loss:2f} \n")
+    return eval_loss, eval_mape

@@ -134,9 +134,10 @@ if __name__ == "__main__":
     #   001.txt
     #   002.txt
     #   003.txt
-    input_sgy = find_files('./INPUTS/', '.sgy')
-    input_txt = find_files('./INPUTS/', '.txt')
-    output_sgy = [f"./OUTPUTS/{i}.sgy" for i in input_sgy]
+    input_sgy = find_files('../../data/raw/SGY_10/', '.sgy')
+    input_txt = find_files('../../data/raw/TXT_10/', '.txt')
+    output_sgy = [f"../../data/interim/OUTPUT/{i}.sgy" for i in range(len(input_sgy))]
+    print(output_sgy)
     for i in range(len(input_sgy)):
         full_pipeline(input_sgy[i], input_txt[i], output_sgy[i])
     # То есть ты первым этапом находишь все .sgy файлы в директории INPUTS, затем все .txt файлы в этой директории.

@@ -142,3 +142,47 @@ class CNN(nn.Module):
             x = self.relu(fc(x)) if i < len(self.fc_layers) - 1 else fc(x)
 
         return x
+
+
+class CNNLSTMNetwork(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, hidden_size, num_layers, dropout,
+                 linear_input_size, linear_output_size, input_shape):
+        super(CNNLSTMNetwork, self).__init__()
+
+        # Define the CNN layer
+        self.cnn = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+        self.relu = nn.ReLU()
+
+        # Calculate the size of the output after the CNN layer
+        cnn_output_height = (input_shape[0] - kernel_size + 2 * padding) // stride + 1
+        cnn_output_width = (input_shape[1] - kernel_size + 2 * padding) // stride + 1
+        cnn_output_size = out_channels * cnn_output_height * cnn_output_width
+
+        # Define the LSTM layer
+        self.lstm = nn.LSTM(cnn_output_size, hidden_size, num_layers, batch_first=True, dropout=dropout)
+
+        # Define the linear layers
+        self.fc1 = nn.Linear(hidden_size, linear_input_size)
+        self.fc2 = nn.Linear(linear_input_size, linear_output_size)
+
+    def forward(self, x):
+        # Apply CNN
+        x = self.cnn(x)
+        x = self.relu(x)
+
+        # Reshape the CNN output to fit the LSTM input
+        batch_size, out_channels, height, width = x.size()
+        x = x.view(batch_size, -1, out_channels * height * width)
+
+        # Apply LSTM
+        x, _ = self.lstm(x)
+
+        # Take the output from the last time step
+        x = x[:, -1, :]
+
+        # Apply linear layers
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.fc2(x)
+
+        return x
