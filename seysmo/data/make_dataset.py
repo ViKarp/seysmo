@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from math import floor
+import pickle
 
 from obspy import read
 import segyio
@@ -37,12 +38,7 @@ def round_to_nearest_5(number):
         return number - last_digit + 10
 
 
-def make_input_output_dataframe(root_directory):
-    inputs = []
-    outputs = []
-    outputs_files = find_files(root_directory)
-    seysm_set = dict()
-    filename = "../../data/raw/MAX_SGY/For_Masw_Resample.sgy"
+def create_input_dict(filename, seysm_dict):
     with segyio.open(filename, "r", endian='big', ignore_geometry=True) as segyfile:
         tr_start = 0
         tr_last = 1
@@ -60,17 +56,26 @@ def make_input_output_dataframe(root_directory):
             rec_mid_y = floor(
                 ((segyfile.header[tr_start][segyio.TraceField.GroupY] / 100 + segyfile.header[tr_last - 1][
                     segyio.TraceField.GroupY] / 100) / 2))
-            seysm_set[(rec_mid_x, rec_mid_y)] = seysmogramm
+            seysm_dict[(rec_mid_x, rec_mid_y)] = seysmogramm
             tr_start, tr_last = tr_last, tr_last + 1
             print(tr_start, '/', len(segyfile.trace))
+
+
+def make_input_output_dataframe(root_directory):
+    inputs = []
+    outputs = []
+    outputs_files = find_files(root_directory)
+    seysm_dict = dict()
+    filename = "../../data/raw/MAX_SGY/For_Masw_Resample.sgy"
+    create_input_dict(filename, seysm_dict)
 
     for files in tqdm(outputs_files):
         with segyio.open(files, "r", endian='big', ignore_geometry=True) as segyfile_output:
             for tr_index in range(len(segyfile_output.header)):
                 rec_mid_x = floor(segyfile_output.header[tr_index][segyio.TraceField.CDP_X] / 100)
                 rec_mid_y = floor(segyfile_output.header[tr_index][segyio.TraceField.CDP_Y] / 100)
-                if (rec_mid_x, rec_mid_y) in seysm_set.keys():
-                    inputs.append(seysm_set[(rec_mid_x, rec_mid_y)])
+                if (rec_mid_x, rec_mid_y) in seysm_dict.keys():
+                    inputs.append(seysm_dict[(rec_mid_x, rec_mid_y)])
                     outputs.append(segyfile_output.trace[tr_index])
                 else:
                     print(rec_mid_x, rec_mid_y)
@@ -84,8 +89,28 @@ def make_input_output_dataframe(root_directory):
     np.save("../../data/processed/max_inputs.npy", input_df)
     np.save("../../data/processed/max_outputs.npy", output_df)
 
+def create_dict_with_coord(root_directory):
+    outputs_files = find_files(root_directory)
+    seysm_dict = dict()
+    final_dict = dict()
+    filename = "../../data/raw/MAX_SGY/For_Masw_Resample.sgy"
+    create_input_dict(filename, seysm_dict)
 
-# TODO три незаписанных аутпута
+    for files in tqdm(outputs_files):
+        with segyio.open(files, "r", endian='big', ignore_geometry=True) as segyfile_output:
+            for tr_index in range(len(segyfile_output.header)):
+                rec_mid_x = floor(segyfile_output.header[tr_index][segyio.TraceField.CDP_X] / 100)
+                rec_mid_y = floor(segyfile_output.header[tr_index][segyio.TraceField.CDP_Y] / 100)
+                if (rec_mid_x, rec_mid_y) in seysm_dict.keys():
+                    final_dict[(rec_mid_x, rec_mid_y)] = (seysm_dict[(rec_mid_x, rec_mid_y)], segyfile_output.trace[tr_index])
+                else:
+                    print(rec_mid_x, rec_mid_y)
+                    print(files)
+                    print(tr_index)
+
+    with open('../../data/processed/coord_dict.pkl', 'wb') as f:
+        pickle.dump(final_dict, f)
 
 if __name__ == '__main__':
-    make_input_output_dataframe("../../data/raw/2023_MSU_MASW/02.Data/03.Result/")
+    #make_input_output_dataframe("../../data/raw/2023_MSU_MASW/02.Data/03.Result/")
+    create_dict_with_coord("../../data/raw/2023_MSU_MASW/02.Data/03.Result/")
