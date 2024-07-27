@@ -151,6 +151,7 @@ class CNNLSTMNetwork(nn.Module):
 
         # Define the CNN layer
         self.cnn = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+
         self.relu = nn.ReLU()
 
         # Calculate the size of the output after the CNN layer
@@ -184,5 +185,64 @@ class CNNLSTMNetwork(nn.Module):
         x = self.fc1(x)
         x = self.relu(x)
         x = self.fc2(x)
+
+        return x
+
+
+class CNNLSTMNetwork2(nn.Module):
+    def __init__(self, in_channels, conv_channels, kernel_size, pool_size, hidden_size, lstm_num_layers, dropout, fc_layers, input_shape):
+        super(CNNLSTMNetwork2, self).__init__()
+
+        # Свёрточные слои
+        self.conv_layers = nn.ModuleList()
+        for i in range(len(conv_channels)):
+            self.conv_layers.append(
+                nn.Conv2d(
+                    in_channels=in_channels if i == 0 else conv_channels[i - 1],
+                    out_channels=conv_channels[i],
+                    kernel_size=kernel_size,
+                    padding=kernel_size // 2
+                )
+            )
+
+        # Пулинг слой
+        self.pool = nn.MaxPool2d(kernel_size=pool_size, stride=pool_size)
+
+        # Линейные слои
+        conv_output_height = input_shape[0] // (pool_size ** len(conv_channels))
+        conv_output_width = input_shape[1] // (pool_size ** len(conv_channels))
+        cnn_output_size = conv_channels[-1] * conv_output_height * conv_output_width
+
+        self.lstm = nn.LSTM(cnn_output_size, hidden_size, lstm_num_layers, batch_first=True, dropout=dropout)
+
+        self.fc_layers = nn.ModuleList()
+        for i in range(len(fc_layers)):
+            self.fc_layers.append(
+                nn.Linear(
+                    in_features=hidden_size if i == 0 else fc_layers[i - 1],
+                    out_features=fc_layers[i]
+                )
+            )
+
+        # Функция активации
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        # Применение свёрточных слоёв с активацией и пулингом
+        for conv in self.conv_layers:
+            x = self.pool(self.relu(conv(x)))
+
+        batch_size, out_channels, height, width = x.size()
+        x = x.view(batch_size, -1, out_channels * height * width)
+
+        # Apply LSTM
+        x, _ = self.lstm(x)
+
+        # Take the output from the last time step
+        x = x[:, -1, :]
+
+        # Применение линейных слоёв с активацией
+        for i, fc in enumerate(self.fc_layers):
+            x = self.relu(fc(x)) if i < len(self.fc_layers) - 1 else fc(x)
 
         return x

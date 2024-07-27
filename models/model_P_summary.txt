@@ -6,9 +6,9 @@ CNNLSTMNetwork                           --
 ├─ReLU: 1-2                              --
 ├─LSTM: 1-3                              28,772,352
 ├─Linear: 1-4                            8,256
-├─Linear: 1-5                            650
+├─Linear: 1-5                            65
 =================================================================
-Total params: 28,781,674
-Trainable params: 28,781,674
+Total params: 28,781,089
+Trainable params: 28,781,089
 Non-trainable params: 0
 =================================================================

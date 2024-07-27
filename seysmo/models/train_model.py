@@ -4,7 +4,7 @@ import mlflow
 import mlflow.pytorch
 
 
-def train(dataloader, model, loss_fn, metrics_fn, optimizer, epoch, device):
+def train(dataloader, model, loss_fn, metrics_fn, optimizer, epoch, device, output_size):
     """Train the model on a single pass of the dataloader.
 
     Args:
@@ -22,8 +22,8 @@ def train(dataloader, model, loss_fn, metrics_fn, optimizer, epoch, device):
 
         pred = model(X)
         # print(model, y)
-        loss = loss_fn(torch.reshape(pred, (-1, 10)), y)
-        mape = metrics_fn(torch.reshape(pred, (-1, 10)), y)
+        loss = loss_fn(torch.reshape(pred, (-1, output_size)), torch.reshape(y, (-1, output_size)))
+        mape = metrics_fn(torch.reshape(pred, (-1, output_size)), torch.reshape(y, (-1, output_size)))
 
         # Backpropagation.
         optimizer.zero_grad()
@@ -38,7 +38,7 @@ def train(dataloader, model, loss_fn, metrics_fn, optimizer, epoch, device):
             print(f"loss: {loss:2f} MAPE: {mape:2f} [{current} / {len(dataloader)}]")
 
 
-def evaluate(dataloader, model, loss_fn, metrics_fn, epoch, device):
+def evaluate(dataloader, model, loss_fn, metrics_fn, epoch, device, output_size):
     """Evaluate the model on a single pass of the dataloader.
 
     Args:
@@ -56,8 +56,8 @@ def evaluate(dataloader, model, loss_fn, metrics_fn, epoch, device):
         for X, y in dataloader:
             X, y = X.to(device), y.to(device)
             pred = model(X)
-            eval_loss += loss_fn(torch.reshape(pred, (-1, 10)), y).item()
-            eval_mape += metrics_fn(torch.reshape(pred, (-1, 10)), y).item()
+            eval_loss += loss_fn(torch.reshape(pred, (-1, output_size)), torch.reshape(y, (-1, output_size))).item()
+            eval_mape += metrics_fn(torch.reshape(pred, (-1, output_size)), torch.reshape(y, (-1, output_size))).item()
 
     eval_loss /= num_batches
     eval_mape /= num_batches
