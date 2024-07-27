@@ -1,5 +1,7 @@
 import torch
 from torch.utils.data import Dataset
+import pickle
+import numpy as np
 
 
 def save_model(model, path):
@@ -75,3 +77,40 @@ class SignalSpeedDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
+
+
+def give_data(path, num_of_train=3, fraction=0.1):
+    with open(path, 'rb') as f:
+        data_coord = pickle.load(f)
+    coordinates = list(data_coord.keys())
+    sorted_coordinates = sorted(coordinates, key=lambda x: x[1])
+    sorted_array = np.array(sorted_coordinates)
+    coord_train = sorted_array[::num_of_train]
+    X_train = []
+    y_train = []
+    for key in coord_train:
+        X_train.append(data_coord[tuple(key.tolist())][0])
+        y_train.append(data_coord[tuple(key.tolist())][1])
+    X_train = np.array(X_train)
+    y_train = np.array(y_train)
+    total_elements = sorted_array.shape[0]
+    coord_ind = np.setdiff1d(np.arange(total_elements), np.arange(0, total_elements, num_of_train))
+    coord_vt = sorted_array[coord_ind]
+    X_vt = []
+    y_vt = []
+    for key in coord_vt:
+        X_vt.append(data_coord[tuple(key.tolist())][0])
+        y_vt.append(data_coord[tuple(key.tolist())][1])
+    X_vt = np.array(X_vt)
+    y_vt = np.array(y_vt)
+    total_elements = X_vt.shape[0]
+    num_indices = int(total_elements * fraction)
+    random_indices = np.random.choice(total_elements, num_indices, replace=False)
+    remaining_indices = np.setdiff1d(np.arange(total_elements), random_indices)
+    X_val = X_vt[random_indices]
+    y_val = y_vt[random_indices]
+    coord_val = coord_vt[random_indices]
+    X_test = X_vt[remaining_indices]
+    y_test = y_vt[remaining_indices]
+    coord_test = coord_vt[remaining_indices]
+    return X_train, y_train, coord_train, X_val, y_val, coord_val, X_test, y_test, coord_test
