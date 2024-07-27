@@ -69,7 +69,7 @@ class EarlyStopper:
 class SignalSpeedDataset(Dataset):
     def __init__(self, X, y):
         # Добавляем размер канала
-        self.X = torch.from_numpy(X).unsqueeze(1).float()
+        self.X = torch.from_numpy(X).float()
         self.y = torch.from_numpy(y).float()
 
     def __len__(self):
