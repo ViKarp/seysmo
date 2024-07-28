@@ -56,8 +56,8 @@ class ParallelLSTMConv2DModel(nn.Module):
         self.conv = nn.Conv2d(conv_in_channels, conv_out_channels, conv_kernel_size, stride, padding)
         self.pool = nn.MaxPool2d(kernel_size=pool_kernel_size)
 
-        cnn_output_height = (input_shape[0] - conv_kernel_size + 2 * padding) // stride + 1
-        cnn_output_width = (input_shape[1] - conv_kernel_size + 2 * padding) // stride + 1
+        cnn_output_height = ((input_shape[0] - conv_kernel_size + 2 * padding) // stride + 1) // pool_kernel_size
+        cnn_output_width = ((input_shape[1] - conv_kernel_size + 2 * padding) // stride + 1) // pool_kernel_size
         cnn_output_size = conv_out_channels * cnn_output_height * cnn_output_width
 
         self.fc1_input_size = lstm_hidden_size + cnn_output_size
