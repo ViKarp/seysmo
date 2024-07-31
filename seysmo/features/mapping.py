@@ -2,11 +2,14 @@ import numpy as np
 import torch
 
 
-def do_array_for_mapping(coord_train, coord_val, coord_test, y_train, y_val, y_test):
+def do_array_for_mapping(coord_train, coord_val, y_train, y_val, coord_test=None, y_test=None):
     train_viz = np.column_stack((coord_train, y_train))
     val_viz = np.column_stack((coord_val, y_val))
-    test_viz = np.column_stack((coord_test, y_test))
-    true_slice = np.concatenate([train_viz, val_viz, test_viz])
+    if coord_test is not None and y_test is not None:
+        test_viz = np.column_stack((coord_test, y_test))
+        true_slice = np.concatenate([train_viz, val_viz, test_viz])
+    else:
+        true_slice = np.concatenate([train_viz, val_viz])
     return true_slice
 
 

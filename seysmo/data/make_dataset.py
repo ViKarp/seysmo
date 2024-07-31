@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 from math import floor
 import pickle
+import swprocess
 
-from obspy import read
 import segyio
 
 import os
@@ -61,6 +61,46 @@ def create_input_dict(filename, seysm_dict):
             print(tr_start, '/', len(segyfile.trace))
 
 
+def create_input_power_dict(filename, seysm_dict):
+    fmin, fmax = 1, 10
+    vmin, vmax, nvel, vspace = 50, 500, 500, "linear"
+    settings = swprocess.Masw.create_settings_dict(fmin=fmin, fmax=fmax,
+                                                   vmin=vmin, vmax=vmax, nvel=nvel, vspace=vspace)
+    with segyio.open(filename, "r", endian='big',
+                     ignore_geometry=True) as segyfile:
+        tr_start = 0
+        tr_last = 1
+
+        while tr_last != len(segyfile.trace) + 1:
+            while segyfile.header[tr_last][segyio.TraceField.FieldRecord] == segyfile.header[tr_start][
+                segyio.TraceField.FieldRecord]:
+                tr_last += 1
+                if tr_last == len(segyfile.trace):
+                    break
+            spec = segyio.spec()
+            spec.ilines = np.arange(1, tr_last - tr_start)
+            spec.xlines = np.arange(1)
+            spec.samples = segyfile.samples
+            spec.format = 1
+            with segyio.create("./temp.sgy", spec) as f:
+                f.text[0] = segyio.tools.wrap("Created with segyio")
+                f.bin = segyfile.bin
+                f.trace = segyfile.trace[tr_start:tr_last]
+                f.header = segyfile.header[tr_start:tr_last]
+            wavefieldtransform = swprocess.Masw.run(fnames="./temp.sgy", settings=settings)
+            wavefieldtransform.normalize()
+            power_disp = wavefieldtransform.power
+            rec_mid_x = floor(
+                ((segyfile.header[tr_start][segyio.TraceField.GroupX] / 100 + segyfile.header[tr_last - 1][
+                    segyio.TraceField.GroupX] / 100) / 2))
+            rec_mid_y = floor(
+                ((segyfile.header[tr_start][segyio.TraceField.GroupY] / 100 + segyfile.header[tr_last - 1][
+                    segyio.TraceField.GroupY] / 100) / 2))
+            seysm_dict[(rec_mid_x, rec_mid_y)] = power_disp
+            tr_start, tr_last = tr_last, tr_last + 1
+            print(tr_start, '/', len(segyfile.trace))
+
+
 def make_input_output_dataframe(root_directory):
     inputs = []
     outputs = []
@@ -89,12 +129,16 @@ def make_input_output_dataframe(root_directory):
     np.save("../../data/processed/max_inputs.npy", input_df)
     np.save("../../data/processed/max_outputs.npy", output_df)
 
-def create_dict_with_coord(root_directory):
+
+def create_dict_with_coord(root_directory, input_format: str = 'seysmo', output_filename: str = 'coord_dict'):
     outputs_files = find_files(root_directory)
     seysm_dict = dict()
     final_dict = dict()
     filename = "../../data/raw/MAX_SGY/For_Masw_Resample.sgy"
-    create_input_dict(filename, seysm_dict)
+    if input_format == 'seysmo':
+        create_input_dict(filename, seysm_dict)
+    if input_format == 'power':
+        create_input_power_dict(filename, seysm_dict)
 
     for files in tqdm(outputs_files):
         with segyio.open(files, "r", endian='big', ignore_geometry=True) as segyfile_output:
@@ -102,15 +146,18 @@ def create_dict_with_coord(root_directory):
                 rec_mid_x = floor(segyfile_output.header[tr_index][segyio.TraceField.CDP_X] / 100)
                 rec_mid_y = floor(segyfile_output.header[tr_index][segyio.TraceField.CDP_Y] / 100)
                 if (rec_mid_x, rec_mid_y) in seysm_dict.keys():
-                    final_dict[(rec_mid_x, rec_mid_y)] = (seysm_dict[(rec_mid_x, rec_mid_y)], segyfile_output.trace[tr_index])
+                    final_dict[(rec_mid_x, rec_mid_y)] = (
+                        seysm_dict[(rec_mid_x, rec_mid_y)], segyfile_output.trace[tr_index])
                 else:
                     print(rec_mid_x, rec_mid_y)
                     print(files)
                     print(tr_index)
 
-    with open('../../data/processed/coord_dict.pkl', 'wb') as f:
+    with open(f'../../data/processed/{output_filename}.pkl', 'wb') as f:
         pickle.dump(final_dict, f)
 
+
 if __name__ == '__main__':
-    #make_input_output_dataframe("../../data/raw/2023_MSU_MASW/02.Data/03.Result/")
-    create_dict_with_coord("../../data/raw/2023_MSU_MASW/02.Data/03.Result/")
+    # make_input_output_dataframe("../../data/raw/2023_MSU_MASW/02.Data/03.Result/")
+    create_dict_with_coord("../../data/raw/2023_MSU_MASW/02.Data/03.Result/", input_format='power',
+                           output_filename='coord_power_dict')
