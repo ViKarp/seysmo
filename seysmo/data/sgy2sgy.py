@@ -64,6 +64,7 @@ def merge_df(coord_df, filepath):
 def txt2sgy(input_df, output_filepath: str) -> None:
     grouped_df = input_df.groupby(['Receiver Midpoint_X', 'Receiver Midpoint_Y', 'FFID'])
     max_samples = max(group.shape[0] for name, group in grouped_df)
+    print(max_samples)
     spec = segyio.spec()
     spec.ilines = np.arange(1, len(grouped_df) + 1)
     spec.xlines = np.arange(1)
@@ -134,8 +135,8 @@ if __name__ == "__main__":
     #   001.txt
     #   002.txt
     #   003.txt
-    input_sgy = find_files('../../data/raw/SGY_10/', '.sgy')
-    input_txt = find_files('../../data/raw/TXT_10/', '.txt')
+    input_sgy = find_files('../../data/raw/examples_10/SGY_10/', '.sgy')
+    input_txt = find_files('../../data/raw/examples_10/TXT_10/', '.txt')
     output_sgy = [f"../../data/interim/OUTPUT/{i}.sgy" for i in range(len(input_sgy))]
     print(output_sgy)
     for i in range(len(input_sgy)):

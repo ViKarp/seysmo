@@ -2,13 +2,13 @@
 Layer (type:depth-idx)                   Param #
 =================================================================
 ParallelLSTMConv2DModel                  --
-├─LSTM: 1-1                              1,057,024
+├─LSTM: 1-1                              1,055,744
 ├─Conv2d: 1-2                            272
 ├─MaxPool2d: 1-3                         --
-├─Linear: 1-4                            897,088
+├─Linear: 1-4                            563,264
 ├─Linear: 1-5                            650
 =================================================================
-Total params: 1,955,034
-Trainable params: 1,955,034
+Total params: 1,619,930
+Trainable params: 1,619,930
 Non-trainable params: 0
 =================================================================
