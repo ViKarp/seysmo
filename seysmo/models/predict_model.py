@@ -1,6 +1,6 @@
 import torch
 
-
+#TODO refactoring
 def predict(model, data, device='cpu'):
     """
     Perform prediction using the model.

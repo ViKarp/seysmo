@@ -1,0 +1,4 @@
+name: Adam
+learning_rate: 0.001
+patience: 5
+min_delta: 50

@@ -1,14 +1,24 @@
 =================================================================
 Layer (type:depth-idx)                   Param #
 =================================================================
-ParallelLSTMConv2DModel                  --
-├─LSTM: 1-1                              1,055,744
-├─Conv2d: 1-2                            272
-├─MaxPool2d: 1-3                         --
-├─Linear: 1-4                            563,264
-├─Linear: 1-5                            650
+LeNet5                                   --
+├─Sequential: 1-1                        --
+│    └─Conv2d: 2-1                       156
+│    └─BatchNorm2d: 2-2                  12
+│    └─ReLU: 2-3                         --
+│    └─MaxPool2d: 2-4                    --
+├─Sequential: 1-2                        --
+│    └─Conv2d: 2-5                       2,416
+│    └─BatchNorm2d: 2-6                  32
+│    └─ReLU: 2-7                         --
+│    └─MaxPool2d: 2-8                    --
+├─Linear: 1-3                            6,481,800
+├─ReLU: 1-4                              --
+├─Linear: 1-5                            1,620,900
+├─ReLU: 1-6                              --
+├─Linear: 1-7                            9,010
 =================================================================
-Total params: 1,619,930
-Trainable params: 1,619,930
+Total params: 8,114,326
+Trainable params: 8,114,326
 Non-trainable params: 0
 =================================================================

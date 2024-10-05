@@ -7,6 +7,7 @@ def do_array_for_mapping(coord_train, coord_val, y_train, y_val, coord_test=None
     val_viz = np.column_stack((coord_val, y_val))
     if coord_test is not None and y_test is not None:
         test_viz = np.column_stack((coord_test, y_test))
+        print(train_viz.shape, val_viz.shape, test_viz.shape)
         true_slice = np.concatenate([train_viz, val_viz, test_viz])
     else:
         true_slice = np.concatenate([train_viz, val_viz])

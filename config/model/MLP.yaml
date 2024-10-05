@@ -1,0 +1,3 @@
+name: MLP
+input_size: 8451
+output_size: 10

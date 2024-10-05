@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 import numpy as np
 from math import floor
@@ -52,11 +54,11 @@ def create_input_dict(filenames, seysm_dict, only_x=False):
                         break
                 seysmogramm = pd.DataFrame(segyfile.trace[tr_start:tr_last]).values
                 rec_mid_x = floor(
-                    ((segyfile.header[tr_start][segyio.TraceField.GroupX] / 10 + segyfile.header[tr_last - 1][
-                        segyio.TraceField.GroupX] / 10) / 2))
+                    ((segyfile.header[tr_start][segyio.TraceField.GroupX] / 100 + segyfile.header[tr_last - 1][
+                        segyio.TraceField.GroupX] / 100) / 2))
                 rec_mid_y = floor(
-                    ((segyfile.header[tr_start][segyio.TraceField.GroupY] / 10 + segyfile.header[tr_last - 1][
-                        segyio.TraceField.GroupY] / 10) / 2))
+                    ((segyfile.header[tr_start][segyio.TraceField.GroupY] / 100 + segyfile.header[tr_last - 1][
+                        segyio.TraceField.GroupY] / 100) / 2))
                 if only_x:
                     seysm_dict[rec_mid_x] = (seysmogramm, rec_mid_y)
                 else:
@@ -95,11 +97,11 @@ def create_input_power_dict(filename, seysm_dict):
             wavefieldtransform.normalize()
             power_disp = wavefieldtransform.power
             rec_mid_x = floor(
-                ((segyfile.header[tr_start][segyio.TraceField.GroupX] / 100 + segyfile.header[tr_last - 1][
-                    segyio.TraceField.GroupX] / 100) / 2))
+                ((segyfile.header[tr_start][segyio.TraceField.GroupX] / 10 + segyfile.header[tr_last - 1][
+                    segyio.TraceField.GroupX] / 10) / 2))
             rec_mid_y = floor(
-                ((segyfile.header[tr_start][segyio.TraceField.GroupY] / 100 + segyfile.header[tr_last - 1][
-                    segyio.TraceField.GroupY] / 100) / 2))
+                ((segyfile.header[tr_start][segyio.TraceField.GroupY] / 10 + segyfile.header[tr_last - 1][
+                    segyio.TraceField.GroupY] / 10) / 2))
             seysm_dict[(rec_mid_x, rec_mid_y)] = power_disp
             tr_start, tr_last = tr_last, tr_last + 1
             print(tr_start, '/', len(segyfile.trace))
@@ -134,28 +136,62 @@ def make_input_output_dataframe(root_directory, output_filename):
     np.save(f"../../data/processed/{output_filename}_outputs.npy", output_df)
 
 
+def calculate_distance(x1, y1, x2, y2):
+    return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+
 def create_dict_with_coord(root_directory, input_format: str = 'seysmo', output_filename: str = 'coord_dict'):
     outputs_files = find_files(root_directory)
     seysm_dict = dict()
     final_dict = dict()
-    filename = "../../data/raw/MAX_SGY/For_Masw_Resample.sgy"
+    # filenames = ["../../data/raw/second_place/Area1_processed_data_for_MASW_ReS.sgy",
+    #              "../../data/raw/second_place/Area2_processed_data_for_MASW_ReS.sgy",
+    #              "../../data/raw/second_place/Area3_processed_data_for_MASW_ReS.sgy",
+    #              "../../data/raw/second_place/Area4_processed_data_for_MASW_ReS.sgy",
+    #              "../../data/raw/second_place/Area5_processed_data_for_MASW_ReS.sgy",
+    #              "../../data/raw/second_place/Area6_processed_data_for_MASW_ReS.sgy"]
+    filenames = ["../../data/raw/second_place/Area5_processed_data_for_MASW_ReS_CHAN.sgy",
+                 ]
     if input_format == 'seysmo':
-        create_input_dict(filename, seysm_dict)
+        create_input_dict(filenames, seysm_dict)
     if input_format == 'power':
-        create_input_power_dict(filename, seysm_dict)
-
+        create_input_power_dict(filenames, seysm_dict)
+    print(len(seysm_dict.keys()))
+    bad = 0
+    al = 0
     for files in tqdm(outputs_files):
         with segyio.open(files, "r", endian='big', ignore_geometry=True) as segyfile_output:
             for tr_index in range(len(segyfile_output.header)):
                 rec_mid_x = floor(segyfile_output.header[tr_index][segyio.TraceField.CDP_X] / 100)
                 rec_mid_y = floor(segyfile_output.header[tr_index][segyio.TraceField.CDP_Y] / 100)
-                if (rec_mid_x, rec_mid_y) in seysm_dict.keys():
-                    final_dict[(rec_mid_x, rec_mid_y)] = (
-                        seysm_dict[(rec_mid_x, rec_mid_y)], segyfile_output.trace[tr_index])
-                else:
+                # if (rec_mid_x, rec_mid_y) in seysm_dict.keys():
+                #     final_dict[(rec_mid_x, rec_mid_y)] = (
+                #         seysm_dict[(rec_mid_x, rec_mid_y)], segyfile_output.trace[tr_index])
+                # else:
+                #     bad += 1
+                #     print(rec_mid_x, rec_mid_y)
+                #     print(files)
+                #     print(tr_index)
+
+                radius = 100
+                fl = []
+
+                for (key_x, key_y) in seysm_dict.keys():
+                    distance = calculate_distance(rec_mid_x, rec_mid_y, key_x, key_y)
+                    if distance <= radius:
+                        fl.append((distance, key_x, key_y))
+                if len(fl) == 0:
+                    bad += 1
                     print(rec_mid_x, rec_mid_y)
                     print(files)
                     print(tr_index)
+                else:
+                    dist, x, y = sorted(fl, key=lambda x: x[0])[0]
+                    final_dict[(rec_mid_x, rec_mid_y)] = (
+                        seysm_dict[(x, y)], segyfile_output.trace[tr_index])
+                al += 1
+    print(al)
+    print(bad)
+    print(len(seysm_dict.keys()))
 
     with open(f'../../data/processed/{output_filename}.pkl', 'wb') as f:
         pickle.dump(final_dict, f)
@@ -165,30 +201,44 @@ def create_dict_with_coord_from_txt(root_directory, output_filename):
     outputs_files = find_files(root_directory, '.txt')
     seysm_dict = dict()
     final_dict = dict()
-    filenames = ["../../data/raw/second_place/Area2_processed_data_for_MASW_part.sgy",
-                 "../../data/raw/second_place/Area1_processed_data_for_MASW.sgy",
-                 "../../data/raw/second_place/Area3_all_processed_data_for_MASW_1.sgy",
-                 "../../data/raw/second_place/Area3_processed_data_for_MASW-2.sgy",
-                 "../../data/raw/second_place/Area5_processed_data_for_MASW.sgy"]
+    filenames = ["../../data/raw/second_place/Area1_processed_data_for_MASW_ReS.sgy",
+                 "../../data/raw/second_place/Area2_processed_data_for_MASW_ReS.sgy",
+                 "../../data/raw/second_place/Area3_processed_data_for_MASW_ReS.sgy",
+                 "../../data/raw/second_place/Area4_processed_data_for_MASW_ReS.sgy",
+                 "../../data/raw/second_place/Area5_processed_data_for_MASW_ReS.sgy",
+                 "../../data/raw/second_place/Area6_processed_data_for_MASW_ReS.sgy"]
+    # filenames = ["../../data/raw/second_place/raw_data/Area1_processed_data_for_MASW.sgy",
+    #              "../../data/raw/second_place/raw_data/Area2_processed_data_for_MASW.sgy",
+    #              "../../data/raw/second_place/raw_data/Area3_processed_data_for_MASW.sgy",
+    #              "../../data/raw/second_place/raw_data/Area4_processed_data_for_MASW.sgy",
+    #              "../../data/raw/second_place/raw_data/Area5_processed_data_for_MASW.sgy"
+    #              ]
     create_input_dict(filenames, seysm_dict, only_x=True)
+    counter = 0
+    bad = 0
+    def process_group(group):
+        # Сортировка по Depth
+        sorted_group = group.sort_values(by='Depth')
+        # Получаем все значения Velocity в виде списка
+        velocity_array = sorted_group['Velocity'].tolist()
+        return velocity_array
 
     for file in tqdm(outputs_files):
+        # print(file)
         df = pd.read_csv(file, delimiter='\t')
-        df = df[['Receiver Midpoint', 'Depth', 'Velocity']]
-        def replace_commas(value):
-            if isinstance(value, str):  # Проверяем, является ли значение строкой
-                return value.replace(',', '.')
-            return value  # Возвращаем значение без изменений, если оно не строка
+        if 'Receiver Midpoint' not in df.columns:
+            df = df[['Receiver_Midpoint_X', 'Depth', 'Velocity']]
+            df = df.groupby(['Receiver_Midpoint_X'])
+        else:
+            df = df[['Receiver Midpoint', 'Depth', 'Velocity']]
+            def replace_commas(value):
+                if isinstance(value, str):  # Проверяем, является ли значение строкой
+                    return value.replace(',', '.')
+                return value  # Возвращаем значение без изменений, если оно не строка
 
-        df = df.applymap(replace_commas)
-        df = df.astype(float)
-        df = df.groupby(['Receiver Midpoint'])
-        def process_group(group):
-            # Сортировка по Depth
-            sorted_group = group.sort_values(by='Depth')
-            # Получаем все значения Velocity в виде списка
-            velocity_array = sorted_group['Velocity'].tolist()
-            return velocity_array
+            df = df.applymap(replace_commas)
+            df = df.astype(float)
+            df = df.groupby(['Receiver Midpoint'])
 
         result = df.apply(process_group)
         result_df = pd.DataFrame(result, columns=['Velocity'])
@@ -196,11 +246,29 @@ def create_dict_with_coord_from_txt(root_directory, output_filename):
             rec_mid_x = floor(mid_x)
             if rec_mid_x in seysm_dict.keys():
                 seysmogramm, rec_mid_y = seysm_dict[rec_mid_x]
+                del seysm_dict[rec_mid_x]
                 final_dict[(rec_mid_x, rec_mid_y)] = (
                     seysmogramm, result_df.loc[mid_x])
             else:
-                print(rec_mid_x)
-                print(mid_x)
+                l = 0
+                o = 0
+                for k in seysm_dict.keys():
+                    if abs(rec_mid_x - k) < 3:
+                        l += 1
+                        o = k
+                if l == 1:
+                    seysmogramm, rec_mid_y = seysm_dict[o]
+                    del seysm_dict[o]
+                    final_dict[(o, rec_mid_y)] = (
+                        seysmogramm, result_df.loc[mid_x])
+                else:
+                    bad += 1
+                    # print(bad)
+                    print(mid_x)
+            counter += 1
+
+    print(bad)
+    print(counter)
 
     with open(f'../../data/processed/{output_filename}.pkl', 'wb') as f:
         pickle.dump(final_dict, f)
@@ -208,6 +276,6 @@ def create_dict_with_coord_from_txt(root_directory, output_filename):
 
 if __name__ == '__main__':
     # make_input_output_dataframe("../../data/raw/second_place/Result_TXT/", output_filename="second_place")
-    # create_dict_with_coord("../../data/raw/2023_MSU_MASW/02.Data/03.Result/", input_format='power',
-    #                        output_filename='coord_power_dict')
-    create_dict_with_coord_from_txt("../../data/raw/second_place/Result_TXT/", output_filename="second_place")
+    create_dict_with_coord("../../data/raw/second_place/Result_TXT/segy/Area5_results/",
+                           output_filename='Area5_26')
+    # create_dict_with_coord_from_txt("../../data/raw/second_place/Result_TXT/txt/", output_filename="second_place_27")

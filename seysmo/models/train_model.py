@@ -2,6 +2,12 @@ import torch
 from sklearn.metrics import mean_squared_error
 import mlflow
 import mlflow.pytorch
+from torch import nn
+from torchinfo import summary
+from torchmetrics import MeanAbsolutePercentageError
+
+from seysmo.models.utils import *
+import hydra
 
 
 def train(dataloader, model, loss_fn, metrics_fn, optimizer, epoch, device, output_size):
@@ -19,7 +25,6 @@ def train(dataloader, model, loss_fn, metrics_fn, optimizer, epoch, device, outp
     model.train()
     for batch, (X, y) in enumerate(dataloader):
         X, y = X.to(device), y.to(device)
-
         pred = model(X)
         # print(model, y)
         loss = loss_fn(torch.reshape(pred, (-1, output_size)), torch.reshape(y, (-1, output_size)))
@@ -66,3 +71,27 @@ def evaluate(dataloader, model, loss_fn, metrics_fn, epoch, device, output_size)
 
     print(f"Eval metrics: \nMAPE: {eval_mape:.2f}, Avg loss: {eval_loss:2f} \n")
     return eval_loss, eval_mape
+
+
+def train_model(cfg, model, train_dataloader, val_dataloader, loss_fn, metric_fn):
+    with mlflow.start_run() as run:
+        mlflow.log_params(cfg)
+        model = model.to(cfg.device)
+        with open("model_P_summary.txt", "w", encoding="utf-8") as f:
+            f.write(str(summary(model)))
+        mlflow.log_artifact("model_P_summary.txt")
+        optimizer = getattr(torch.optim, cfg.training.name)(model.parameters(), lr=cfg.training.learning_rate)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=cfg.training.patience, factor=0.1)
+        early_stopper = EarlyStopper(patience=cfg.training.patience, min_delta=cfg.training.min_delta)
+
+        for t in range(cfg.epochs):
+            print(f"Epoch {t + 1}\n-------------------------------")
+            train(train_dataloader, model, loss_fn, metric_fn, optimizer, epoch=t, device=cfg.device,
+                  output_size=10)
+            validation_loss, validation_mape = evaluate(val_dataloader, model, loss_fn, metric_fn, epoch=t,
+                                                        device=cfg.device,
+                                                        output_size=10)
+            if early_stopper.early_stop(validation_loss):
+                break
+            scheduler.step(validation_loss)
+        mlflow.pytorch.log_model(model, "model")

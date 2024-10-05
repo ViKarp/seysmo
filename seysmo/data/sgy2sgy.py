@@ -1,4 +1,5 @@
 import sys
+from math import floor
 
 import pandas as pd
 import segyio
@@ -11,9 +12,11 @@ def coord_func(x):
     :param x: dataframe
     :return: coordinate of the central point (dataframe)
     """
-    return pd.DataFrame(
-        [[(np.min(x['REC_X']) + np.max(x['REC_X'])) / 2, (np.min(x['REC_Y']) + np.max(x['REC_Y'])) / 2]],
-        columns=["Receiver Midpoint_X", "Receiver Midpoint_Y"])
+    min_chan = x.loc[x['CHAN'].idxmin()]
+    max_chan = x.loc[x['CHAN'].idxmax()]
+    midpoint_x = (min_chan['REC_X'] + max_chan['REC_X']) / 2
+    midpoint_y = (min_chan['REC_Y'] + max_chan['REC_Y']) / 2
+    return pd.Series({'Receiver Midpoint_X': midpoint_x, 'Receiver Midpoint_Y': midpoint_y})
 
 
 def segy2df(filename):
@@ -26,21 +29,23 @@ def segy2df(filename):
     try:
         with segyio.open(filename, "r", ignore_geometry=True) as segyfile:
             headers = segyfile.header
+            scalar = abs(headers[0][segyio.TraceField.SourceGroupScalar])
             for header in headers:
                 base['FFID'].append(header[segyio.TraceField.FieldRecord])
                 base['CHAN'].append(header[segyio.TraceField.TraceNumber])
-                base['REC_X'].append(header[segyio.TraceField.GroupX])
-                base['REC_Y'].append(header[segyio.TraceField.GroupY])
+                base['REC_X'].append(header[segyio.TraceField.GroupX]/scalar)
+                base['REC_Y'].append(header[segyio.TraceField.GroupY]/scalar)
     except:
         with segyio.open(filename, "r", endian='little') as segyfile:
             headers = segyfile.header
+            scalar = abs(headers[0][segyio.TraceField.SourceGroupScalar])
             for header in headers:
                 base['FFID'].append(header[segyio.TraceField.FieldRecord])
                 base['CHAN'].append(header[segyio.TraceField.TraceNumber])
-                base['REC_X'].append(header[segyio.TraceField.GroupX])
-                base['REC_Y'].append(header[segyio.TraceField.GroupY])
+                base['REC_X'].append(header[segyio.TraceField.GroupX] / scalar)
+                base['REC_Y'].append(header[segyio.TraceField.GroupY] / scalar)
     df = pd.DataFrame(base)
-    return df.groupby('FFID').apply(coord_func)
+    return df.groupby('FFID').apply(coord_func).reset_index()
 
 
 def merge_df(coord_df, filepath):
@@ -50,11 +55,11 @@ def merge_df(coord_df, filepath):
     :param filepath: filepath to .txt file with depths
     :return: merged dataframe
     """
-    coord_df['FFID'] = coord_df.index.to_series().apply(lambda x: x[0]).values
     profile_txt = pd.read_csv(filepath, delimiter="\t")
     profile_txt.rename(columns={"Receiver Midpoint": "Receiver Midpoint_X"}, inplace=True)
-    coord_df["Receiver Midpoint_X"] = coord_df["Receiver Midpoint_X"] / 10
-    coord_df["Receiver Midpoint_Y"] = coord_df["Receiver Midpoint_Y"] / 10
+    coord_df["Receiver Midpoint_X"] = coord_df["Receiver Midpoint_X"].apply(floor)
+    coord_df["Receiver Midpoint_Y"] = coord_df["Receiver Midpoint_Y"].apply(floor)
+    profile_txt["Receiver Midpoint_X"] = profile_txt["Receiver Midpoint_X"].apply(floor)
     df_last = pd.merge(coord_df, profile_txt, left_on='Receiver Midpoint_X', right_on='Receiver Midpoint_X')
     df_last['Depth'] = -df_last['Depth']
     df_last.drop(['REC_STAT1', 'REC_STAT2', 'Vs30'], axis=1, inplace=True)
@@ -64,7 +69,6 @@ def merge_df(coord_df, filepath):
 def txt2sgy(input_df, output_filepath: str) -> None:
     grouped_df = input_df.groupby(['Receiver Midpoint_X', 'Receiver Midpoint_Y', 'FFID'])
     max_samples = max(group.shape[0] for name, group in grouped_df)
-    print(max_samples)
     spec = segyio.spec()
     spec.ilines = np.arange(1, len(grouped_df) + 1)
     spec.xlines = np.arange(1)
@@ -135,10 +139,9 @@ if __name__ == "__main__":
     #   001.txt
     #   002.txt
     #   003.txt
-    input_sgy = find_files('../../data/raw/examples_10/SGY_10/', '.sgy')
-    input_txt = find_files('../../data/raw/examples_10/TXT_10/', '.txt')
-    output_sgy = [f"../../data/interim/OUTPUT/{i}.sgy" for i in range(len(input_sgy))]
-    print(output_sgy)
+    input_sgy = find_files('../../data/raw/exp/', '.sgy')
+    input_txt = find_files('../../data/raw/exp/', '.txt')
+    output_sgy = [f"../../data/interim/OUTPUT/sg{i}.sgy" for i in range(len(input_sgy))]
     for i in range(len(input_sgy)):
         full_pipeline(input_sgy[i], input_txt[i], output_sgy[i])
     # То есть ты первым этапом находишь все .sgy файлы в директории INPUTS, затем все .txt файлы в этой директории.

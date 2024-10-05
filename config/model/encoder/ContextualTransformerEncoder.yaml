@@ -1,0 +1,4 @@
+name: ContextualTransformerEncoder
+embed_dim: 512
+num_heads: 8
+num_layers: 12

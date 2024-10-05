@@ -1,0 +1,17 @@
+defaults:
+  - model: LeNet5
+  - training: adam
+  # - data: supervised
+  # - loss: Wav2Vec2Loss
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ./outputs/sweeps
+  job_logging:
+    root:
+      handlers: [console, file]
+epochs: 75
+batch_size: 32
+device: "cuda"
+output_dir: "outputs/"

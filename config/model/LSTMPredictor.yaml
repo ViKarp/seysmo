@@ -1,0 +1,6 @@
+name: LSTMPredictor
+hidden_size: 512
+num_layers: 16
+input_size: 313
+dropout: 0.2
+output_size: 10

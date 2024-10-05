@@ -1,0 +1,20 @@
+name: Wav2Vec2Framework
+feature_extractor:
+  _target_: "model.extractor.ConvFeatureExtractor"
+  extracted_feature_size: ${feature_extractor.extracted_feature_size}
+  input_size: ${feature_extractor.input_size}
+encoder:
+  _target_: "model.encoder.ContextualTransformerEncoder"
+  num_layers: ${encoder.num_layers}
+  num_heads: ${encoder.num_heads}
+  embed_dim: ${encoder.embed_dim}
+
+code_vector_size: 512
+num_code_vector_groups: 2
+num_code_vectors_per_group: 100
+mask_time_prob: 0.02
+num_mask_time_steps: 3
+gumbel_init_temperature: 2
+encoder_hidden_size: ${embed_dim}
+
+

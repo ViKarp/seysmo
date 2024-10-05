@@ -1,7 +1,10 @@
+import os
+
 import torch
 from torch.utils.data import Dataset
 import pickle
 import numpy as np
+from seysmo.models import model_class
 
 
 def save_model(model, path):
@@ -28,11 +31,10 @@ def load_model(model_class, path, *args, **kwargs):
     Returns:
     - model (nn.Module): Loaded model.
     """
-    model = model_class(*args, **kwargs)
-    model.load_state_dict(torch.load(path))
-    model.eval()  # Switch model to evaluation mode
+    model_class.load_state_dict(torch.load(path))
+    model_class.eval()  # Switch model to evaluation mode
     print(f"Model loaded from {path}")
-    return model
+    return model_class
 
 
 def count_parameters(model):
@@ -88,8 +90,9 @@ def give_data(path, num_of_train=3, fraction=0.1):
     X_train = []
     y_train = []
     for key in coord_train:
-        X_train.append(data_coord[tuple(key.tolist())][0])
-        y_train.append(data_coord[tuple(key.tolist())][1])
+        if data_coord[tuple(key.tolist())][1].shape == (10,):
+            X_train.append(data_coord[tuple(key.tolist())][0])
+            y_train.append(data_coord[tuple(key.tolist())][1])
     X_train = np.array(X_train)
     y_train = np.array(y_train)
     total_elements = sorted_array.shape[0]
@@ -98,8 +101,9 @@ def give_data(path, num_of_train=3, fraction=0.1):
     X_vt = []
     y_vt = []
     for key in coord_vt:
-        X_vt.append(data_coord[tuple(key.tolist())][0])
-        y_vt.append(data_coord[tuple(key.tolist())][1])
+        if data_coord[tuple(key.tolist())][1].shape == (10,):
+            X_vt.append(data_coord[tuple(key.tolist())][0])
+            y_vt.append(data_coord[tuple(key.tolist())][1])
     X_vt = np.array(X_vt)
     y_vt = np.array(y_vt)
     total_elements = X_vt.shape[0]
@@ -112,4 +116,12 @@ def give_data(path, num_of_train=3, fraction=0.1):
     X_test = X_vt[remaining_indices]
     y_test = y_vt[remaining_indices]
     coord_test = coord_vt[remaining_indices]
+    X_train = np.transpose(X_train, (0, 2, 1))
+    X_val = np.transpose(X_val, (0, 2, 1))
+    X_test = np.transpose(X_test, (0, 2, 1))
     return X_train, y_train, coord_train, X_val, y_val, coord_val, X_test, y_test, coord_test
+
+
+def get_model(cfg):
+    ModelClass = getattr(model_class, cfg.model.name)
+    return ModelClass(cfg)
