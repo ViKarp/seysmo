@@ -371,13 +371,13 @@ class ConvFeatureExtractor(nn.Module):
     def __init__(self, cfg):
         super(ConvFeatureExtractor, self).__init__()
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(cfg.model.input_size, cfg.model.extracted_feature_size, kernel_size=5, stride=2, padding=1),  # conv1
+            nn.Conv2d(cfg.model.feature_extractor.input_size, cfg.model.feature_extractor.extracted_feature_size, kernel_size=5, stride=2, padding=1),  # conv1
             nn.ReLU(),
-            nn.Conv2d(cfg.model.extracted_feature_size, cfg.model.extracted_feature_size, kernel_size=3, stride=1, padding=1),  # conv2
+            nn.Conv2d(cfg.model.feature_extractor.extracted_feature_size, cfg.model.feature_extractor.extracted_feature_size, kernel_size=3, stride=1, padding=1),  # conv2
             nn.ReLU(),
-            nn.Conv2d(cfg.model.extracted_feature_size, cfg.model.extracted_feature_size, kernel_size=3, stride=1, padding=1),  # conv3
+            nn.Conv2d(cfg.model.feature_extractor.extracted_feature_size, cfg.model.feature_extractor.extracted_feature_size, kernel_size=3, stride=1, padding=1),  # conv3
             nn.ReLU(),
-            nn.Conv2d(cfg.model.extracted_feature_size, cfg.model.extracted_feature_size, kernel_size=(13, 3)),  # conv4
+            nn.Conv2d(cfg.model.feature_extractor.extracted_feature_size, cfg.model.feature_extractor.extracted_feature_size, kernel_size=(13, 3)),  # conv4
             # nn.ReLU(),
             # nn.Conv1d(extracted_feature_size, extracted_feature_size, kernel_size=4, stride=2, padding=1),  # conv5
             # nn.ReLU(),
@@ -397,13 +397,13 @@ class ContextualTransformerEncoder(nn.Module):
     def __init__(self, cfg):
         super(ContextualTransformerEncoder, self).__init__()
         self.transformer = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(d_model=cfg.model.embed_dim, nhead=cfg.model.num_heads),
-            num_layers=cfg.model.num_layers
+            nn.TransformerEncoderLayer(d_model=cfg.model.encoder.embed_dim, nhead=cfg.model.encoder.num_heads),
+            num_layers=cfg.model.encoder.num_layers
         )
+        self.conv1d = nn.Conv1d(154, 154, kernel_size=5, stride=1, padding=2)
 
     def positional_encoding(self, x):
-        conv1d = nn.Conv1d(x.view(1), x.view(1), kernel_size=5, stride=1, padding=2)
-        pos_emb = conv1d(x)
+        pos_emb = self.conv1d(x)
         all_emb = pos_emb + x
         return all_emb
 
@@ -488,15 +488,15 @@ class GumbelVectorQuantizer(nn.Module):
 class Wav2Vec2Framework(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        self.mask_time_prob = cfg.mask_time_prob
-        self.num_mask_time_steps = cfg.num_mask_time_steps
-        feat_ext = getattr(__import__(__name__), cfg.model.extractor.name)
+        self.mask_time_prob = cfg.model.mask_time_prob
+        self.num_mask_time_steps = cfg.model.num_mask_time_steps
+        feat_ext = getattr(__import__(__name__).models.model_class, cfg.model.feature_extractor.name)
         self.feature_extractor: nn.Module = feat_ext(cfg)
-        enc = getattr(__import__(__name__), cfg.model.encoder.name)
+        enc = getattr(__import__(__name__).models.model_class, cfg.model.encoder.name)
         self.encoder: nn.Module = enc(cfg)
 
         self.quantizer = GumbelVectorQuantizer(cfg.model.num_code_vector_groups, cfg.model.num_code_vectors_per_group,
-                                               cfg.model.extracted_feature_size, cfg.model.code_vector_size,
+                                               cfg.model.feature_extractor.extracted_feature_size, cfg.model.code_vector_size,
                                                cfg.model.gumbel_init_temperature)
         self.out_linear = nn.Linear(cfg.model.encoder_hidden_size, cfg.model.code_vector_size)
 
@@ -625,7 +625,7 @@ class Wav2vec2Loss(nn.Module):
         Returns:
             torch.Tensor with shape `(1)`
         """
-        log_perplexity = torch.log(perplexity)
+        log_perplexity = torch.log(torch.clamp(perplexity, min=1e-9))
         entropy = torch.sum(perplexity * log_perplexity, dim=-1)
         diversity_loss = torch.sum(entropy) / (self.G * self.V)
 

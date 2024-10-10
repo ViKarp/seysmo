@@ -1,8 +1,8 @@
 defaults:
-  - model: LeNet5
+  - model: Wav2Vec2Framework
   - training: adam
+  - loss: Wav2Vec2Loss
   # - data: supervised
-  # - loss: Wav2Vec2Loss
 hydra:
   run:
     dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}

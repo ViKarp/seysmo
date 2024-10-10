@@ -125,3 +125,8 @@ def give_data(path, num_of_train=3, fraction=0.1):
 def get_model(cfg):
     ModelClass = getattr(model_class, cfg.model.name)
     return ModelClass(cfg)
+
+
+def get_loss(cfg):
+    ModelClass = getattr(model_class, cfg.loss.name)
+    return ModelClass(cfg)

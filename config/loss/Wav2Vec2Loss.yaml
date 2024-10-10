@@ -2,5 +2,5 @@ name: Wav2vec2Loss
 contrastive_loss_temperature: 0.1
 num_contrastive_loss_negative_samples: 10
 num_code_vector_groups: 2
-num_code_vectors_per_group: 100
+num_code_vectors_per_group: 80
 loss_alpha: 0.1
