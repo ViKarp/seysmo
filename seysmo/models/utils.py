@@ -69,15 +69,40 @@ class EarlyStopper:
 
 
 class SignalSpeedDataset(Dataset):
-    def __init__(self, X, y):
+    def __init__(self, X, y = None):
         self.X = torch.from_numpy(X).float()
-        self.y = torch.from_numpy(y).float()
+        self.y = None
+        if y is not None:
+            self.y = torch.from_numpy(y).float()
 
     def __len__(self):
         return len(self.X)
 
     def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
+        if self.y is not None:
+            return self.X[idx], self.y[idx]
+        else:
+            return self.X[idx]
+
+
+class  BigDataset(Dataset):
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.data_index = self._get_data_length()
+
+
+    def _get_data_length(self):
+        with open(self.file_path, 'rb') as f:
+            data = pickle.load(f)
+        return len(data)
+
+    def __len__(self):
+        return self.data_index
+
+    def __getitem__(self, idx):
+        with open(self.file_path, 'rb') as f:
+            data = pickle.load(f)
+            return torch.from_numpy(data[idx]).float()
 
 
 def give_data(path, num_of_train=3, fraction=0.1):

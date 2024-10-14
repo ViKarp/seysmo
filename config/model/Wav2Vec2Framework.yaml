@@ -14,7 +14,7 @@ encoder:
 code_vector_size: 512
 num_code_vector_groups: 2
 num_code_vectors_per_group: 80
-mask_time_prob: 0.1
+mask_time_prob: 0.3
 num_mask_time_steps: 5
 gumbel_init_temperature: 2
 encoder_hidden_size: 512

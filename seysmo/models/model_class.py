@@ -385,7 +385,6 @@ class ConvFeatureExtractor(nn.Module):
         )
 
     def forward(self, x):
-        x = x.permute(0, 2, 1)
         x = x.unsqueeze(1)
         x = self.conv_layers(x)
         x = x.squeeze(2)
